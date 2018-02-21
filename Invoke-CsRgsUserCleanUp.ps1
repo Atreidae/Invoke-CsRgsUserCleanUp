@@ -46,15 +46,12 @@
     None. Invoke-CsRgsUserCleanUp.ps1 only provides user feedback and cannot be piped.
 
 .PARAMETER -FrontEndPool <FrontEnd FQDN> 
-    Frontend Pool to perform the cleanup on 
-    If you dont specify a ServiceID or FrontEndPool, the script will try and guess the frontend to put the holidays on.
-    Specifiying this instead of ServiceID will cause the script to confirm the pool unless -Unattended is specified
+    Frontend Pool to perform the cleanup on. Use -AllPools to run on all FrontEnds
+    If you dont specify a FrontEndPool, the script will try and guess the frontend to clean up.
+    Specifiying this will cause the script to confirm the pool unless -Unattended is specified
 
 .PARAMETER -DisableScriptUpdate
     Stops the script from checking online for an update and prompting the user to download. Ideal for scheduled tasks
-
-.PARAMETER -RemoveExistingRules
-    Deprecated. Script now updates existing rulesets rather than removing them. Kept for backwards compatability
 
 .PARAMETER -Unattended
     Assumes yes for pool selection critera when multiple pools are present and Poolfqdn is specified.

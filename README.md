@@ -32,33 +32,33 @@ Header stolen from  	: Greig Sheridan who stole it from Pat Richard's amazing "G
 
 ## Script Specifics
 
-**EXAMPLE** Attemptes to automatically locate pool and to confirm if the users are okay to be removed.
+**EXAMPLE** Attemptes to automatically locate pool and to confirm if the users are okay to be removed.  
 `PS C:\> .\Invoke-CsRgsUserCleanUp.ps1`
 
-**EXAMPLE** Finds and prompts user to remove invalid users from the AUMELSFBFE pool.
+**EXAMPLE** Finds and prompts user to remove invalid users from the AUMELSFBFE pool.  
 `PS C:\> Invoke-CsRgsUserCleanUp.ps1 -FrontEndPool AUMELSFBFE.Skype4badmin.local`
 
-**EXAMPLE** Finds and removes invalid users from the AUMELSFBFE pool.
+**EXAMPLE** Finds and removes invalid users from the AUMELSFBFE pool.  
 `PS C:\> Invoke-CsRgsUserCleanUp.ps1 -FrontEndPool AUMELSFBFE.Skype4badmin.local -RemoveUsers`
 
-**EXAMPLE** Finds and removes all instances of invalid users in response groups hosted on AUMELSFBFE.Skype4badmin.local without prompting for anything. Also disables script updates
+**EXAMPLE** Finds and removes all instances of invalid users in response groups hosted on AUMELSFBFE.Skype4badmin.local without prompting for anything. Also disables script updates  
 `PS C:\> Invoke-CsRgsUserCleanUp.ps1 -FrontEndPool AUMELSFBFE.Skype4badmin.local -Unattended`
 
-**PARAMETER -FrontEndPool <FrontEnd FQDN>**
+**PARAMETER -FrontEndPool <FrontEnd FQDN>**  
 Frontend Pool to perform the cleanup on. Use -AllPools to run on all FrontEnds
 
-**PARAMETER -DisableScriptUpdate**
+**PARAMETER -DisableScriptUpdate**  
 Stops the script from checking online for an update and prompting the user to download. Ideal for scheduled tasks
 
-**PARAMETER -Unattended**
+**PARAMETER -Unattended**  
 Assumes yes for pool selection critera when multiple pools are present and Poolfqdn is specified.
 Also assumes any matches will be removed automatically! Make sure your backup script is running and use with caution!
 
-**PARAMETER -AllPools**
+**PARAMETER -AllPools**  
 Performes the clean up on all FrontEnd Pools visible in the Topology
 
-**INPUT**
+**INPUT**  
 None. Invoke-CsRgsUserCleanUp.ps1 does not accept pipelined input.
 
-**Output**
+**OUTPUT**  
 None. Invoke-CsRgsUserCleanUp.ps1 only provides user feedback and cannot be piped.

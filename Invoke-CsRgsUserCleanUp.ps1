@@ -88,7 +88,9 @@ param(
 	[Parameter(Mandatory=$false, Position=2)] [switch]$DisableScriptUpdate,
     [Parameter(Mandatory=$false, Position=3)] [switch]$Unattended,
 	[Parameter(Mandatory=$false, Position=4)] [switch]$RemoveUsers,
-	[Parameter(Mandatory=$false, Position=5)] [string]$LogFilePath
+	[Parameter(Mandatory=$false, Position=5)] [switch]$AllPools,
+	[Parameter(Mandatory=$false, Position=6)] [string]$LogFilePath
+
 	)
 #region config
 	If (!$LogFileLocation) {$LogFileLocation = $PSCommandPath -replace ".ps1",".log"}
@@ -229,118 +231,128 @@ Write-Log -component "Bootstrap" -Message "Gathering Front End Pool Data" -sever
 $Pools = (Get-CsService -Registrar)
 
 Write-Log -component "Bootstrap" -Message "Parsing command line parameters" -severity 1
+If ($AllPools) {Write-Log -component "Bootstrap" -Message "Allpools True, Skipping pool check" -severity 1}
+if (!$allpools) { 
+	# Detect and deal with null service ID
+	If ($FrontEndPool -eq $null) {
+		Write-Log -component "Bootstrap" -Message "No Frontend Pool entered, Searching for valid Pool" -severity 3
+		Write-Log -component "Bootstrap" -Message "Looking for Front End Pools" -severity 1
+			$PoolNumber = ($Pools).count
+			if ($PoolNumber -eq 1) { 
+				Write-Log -component "Bootstrap" -Message "Only found 1 Front End Pool, $Pools.poolfqdn, Selecting it" -severity 1
+				$RGSIDs = (Get-CsRgsConfiguration -Identity $pools.PoolFqdn)
+				$Poolfqdn = $Pools.poolfqdn
+				#Prompt user to confirm
+				Write-Log -component "Bootstrap" -Message "Found RGS Service ID $RGSIDs" -severity 1
+					$title = "Use this Front End Pool?"
+					$message = "Use the Response Group Server on $poolfqdn ?"
 
-# Detect and deal with null service ID
-If ($FrontEndPool -eq $null) {
-	Write-Log -component "Bootstrap" -Message "No Frontend Pool entered, Searching for valid Pool" -severity 3
-	Write-Log -component "Bootstrap" -Message "Looking for Front End Pools" -severity 1
-		$PoolNumber = ($Pools).count
-		if ($PoolNumber -eq 1) { 
-			Write-Log -component "Bootstrap" -Message "Only found 1 Front End Pool, $Pools.poolfqdn, Selecting it" -severity 1
-			$RGSIDs = (Get-CsRgsConfiguration -Identity $pools.PoolFqdn)
-			$Poolfqdn = $Pools.poolfqdn
-			#Prompt user to confirm
-			Write-Log -component "Bootstrap" -Message "Found RGS Service ID $RGSIDs" -severity 1
-				$title = "Use this Front End Pool?"
-				$message = "Use the Response Group Server on $poolfqdn ?"
+					$yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
+						"Continues using the selected Front End Pool."
 
-				$yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
-					"Continues using the selected Front End Pool."
+					$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
+						"Aborts the script."
 
-				$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
-					"Aborts the script."
+					$options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
 
-				$options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
+					$result = $host.ui.PromptForChoice($title, $message, $options, 0) 
 
-				$result = $host.ui.PromptForChoice($title, $message, $options, 0) 
-
-				switch ($result)
-					{
-						0 {Write-Log -component "Bootstrap" -Message "Updating ServiceID parameter" -severity 1
-							$ServiceID = $RGSIDs.Identity.tostring()}
-						1 {Write-Log -component "Bootstrap" -Message "Couldn't Autolocate RGS pool. Aborting script" -severity 3
-							Throw "Couldn't Autolocate RGS pool. Abort script"}
+					switch ($result)
+						{
+							0 {Write-Log -component "Bootstrap" -Message "Updating ServiceID parameter" -severity 1
+								$ServiceID = $RGSIDs.Identity.tostring()}
+							1 {Write-Log -component "Bootstrap" -Message "Couldn't Autolocate RGS pool. Aborting script" -severity 3
+								Throw "Couldn't Autolocate RGS pool. Abort script"}
 							
-					}
+						}
 
-				}
+					}
 			
 
-	Else {
-	#More than 1 Pool Detected and the user didnt specify anything
-		Write-Log -component "Bootstrap" -Message "Found $PoolNumber Front End Pools" -severity 1
+		Else {
+		#More than 1 Pool Detected and the user didnt specify anything
+			Write-Log -component "Bootstrap" -Message "Found $PoolNumber Front End Pools" -severity 1
 	
-		If ($FrontEndPool -eq $null) {
-			Write-Log -component "Bootstrap" -Message "Prompting user to select Front End Pool" -severity 1
-			Write-Log -component "Bootstrap" -Message "Couldn't Locate ServiceID or PoolFQDN on the command line and more than one Front End Pool was detected" -severity 3
-			#Menu code thanks to Grieg.
-			#First figure out the maximum width of the pools name (for the tabular menu):
-			$width=0
-			foreach ($Pool in ($Pools)) {
-				if ($Pool.Poolfqdn.Length -gt $width) {
-					$width = $Pool.Poolfqdn.Length
+			If ($FrontEndPool -eq $null) {
+				Write-Log -component "Bootstrap" -Message "Prompting user to select Front End Pool" -severity 1
+				Write-Log -component "Bootstrap" -Message "Couldn't Locate ServiceID or PoolFQDN on the command line and more than one Front End Pool was detected" -severity 3
+				#Menu code thanks to Grieg.
+				#First figure out the maximum width of the pools name (for the tabular menu):
+				$width=0
+				foreach ($Pool in ($Pools)) {
+					if ($Pool.Poolfqdn.Length -gt $width) {
+						$width = $Pool.Poolfqdn.Length
+					}
 				}
+
+				#Provide an on-screen menu of Front End Pools for the user to choose from:
+				$index = 0
+				write-host ("Index  "), ("Pool FQDN".Padright($width + 1)," "), "Site ID"
+				foreach ($Pool in ($Pools)) {
+					write-host ($index.ToString()).PadRight(7," "), ($Pool.Poolfqdn.Padright($width + 1)," "), $pool.siteid.ToString()
+					$index++
+					}
+				$index--	#Undo that last increment
+				Write-Host
+				Write-Host "Choose the Front End Pool you wish to use"
+				$chosen = read-host "Or any other value to quit"
+
+				if ($chosen -notmatch '^\d$') {Exit}
+				if ([int]$chosen -lt 0) {Exit}
+				if ([int]$chosen -gt $index) {Exit}
+				$FrontEndPool = $pools[$chosen].PoolFqdn
+				$Poolfqdn = $FrontEndPool
+				$RGSIDs = (Get-CsRgsConfiguration -Identity $FrontEndPool)
 			}
 
-			#Provide an on-screen menu of Front End Pools for the user to choose from:
-			$index = 0
-			write-host ("Index  "), ("Pool FQDN".Padright($width + 1)," "), "Site ID"
-			foreach ($Pool in ($Pools)) {
-				write-host ($index.ToString()).PadRight(7," "), ($Pool.Poolfqdn.Padright($width + 1)," "), $pool.siteid.ToString()
-				$index++
-				}
-			$index--	#Undo that last increment
-			Write-Host
-			Write-Host "Choose the Front End Pool you wish to use"
-			$chosen = read-host "Or any other value to quit"
 
-			if ($chosen -notmatch '^\d$') {Exit}
-			if ([int]$chosen -lt 0) {Exit}
-			if ([int]$chosen -gt $index) {Exit}
-			$FrontEndPool = $pools[$chosen].PoolFqdn
-			$Poolfqdn = $FrontEndPool
-			$RGSIDs = (Get-CsRgsConfiguration -Identity $FrontEndPool)
-		}
-
-
-	#User specified the pool at the commandline or we collected it earlier
+		#User specified the pool at the commandline or we collected it earlier
 		
-	Write-Log -component "Bootstrap" -Message "Using Front End Pool $FrontendPool" -severity 1
-	$RGSIDs = (Get-CsRgsConfiguration -Identity $FrontEndPool)
-	$Poolfqdn = $FrontEndPool
+		Write-Log -component "Bootstrap" -Message "Using Front End Pool $FrontendPool" -severity 1
+		$RGSIDs = (Get-CsRgsConfiguration -Identity $FrontEndPool)
+		$Poolfqdn = $FrontEndPool
 
 
 
-if (!$Unattended) {
-	#Prompt user to confirm
-		$title = "Use this Pool?"
-		$message = "Use the Response Group Server on $poolfqdn ?"
+	if (!$Unattended) {
+		#Prompt user to confirm
+			$title = "Use this Pool?"
+			$message = "Use the Response Group Server on $poolfqdn ?"
 
-		$yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
-			"Continues using the selected Front End Pool."
+			$yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
+				"Continues using the selected Front End Pool."
 
-		$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
-			"Aborts the script."
+			$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
+				"Aborts the script."
 
-		$options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
+			$options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
 
-		$result = $host.ui.PromptForChoice($title, $message, $options, 0) 
+			$result = $host.ui.PromptForChoice($title, $message, $options, 0) 
 
-		switch ($result)
-			{
-				0 {Write-Log -component "Bootstrap" -Message "Updating ServiceID" -severity 1
-					$ServiceID = $RGSIDs.Identity.tostring()}
-				1 {Write-Log -component "Bootstrap" -Message "Couldnt Autolocate RGS pool. Abort script" -severity 3
-					Throw "Couldnt Autolocate RGS pool. Abort script"}
+			switch ($result)
+				{
+					0 {Write-Log -component "Bootstrap" -Message "Updating ServiceID" -severity 1
+						$ServiceID = $RGSIDs.Identity.tostring()}
+					1 {Write-Log -component "Bootstrap" -Message "Couldnt Autolocate RGS pool. Abort script" -severity 3
+						Throw "Couldnt Autolocate RGS pool. Abort script"}
+				}
 			}
-        }
 
-	} 
+		} 
 
-}
+	}
+} #end AllPools If statement
+
 #We should have a valid Pool FQDN by now, enumerate RGS objects.
 	Write-Log -component "Process" -Message "Gathering RGS Agent Groups" -severity 1
-	$RgsGroups = (Get-CsRgsAgentGroup | where {$_.OwnerPool -eq $poolFqdn})
+	switch ($AllPools)
+				{
+					$false {Write-Log -component "Process" -Message "Pulling data from $poolFqdn" -severity 1
+						$RgsGroups = (Get-CsRgsAgentGroup | where {$_.OwnerPool -eq $poolFqdn})}
+					$true {Write-Log -component "Bootstrap" -Message "Pulling data from all Frontend Pools" -severity 3
+						$RgsGroups = (Get-CsRgsAgentGroup)}
+				}
+	
 	Write-Log -component "Process" -Message "Found $($RgsGroups.count) groups" -severity 1
 	$totalInvalidUsers = 0
 	ForEach($RgsGroup in $RgsGroups){
